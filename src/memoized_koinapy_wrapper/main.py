@@ -1,14 +1,21 @@
 import functools
-import numpy.typing as npt
-import pandas as pd
-
-from pathlib import Path
-from typing import Iterable
 
 from dataclasses import dataclass
 from importlib.resources import files
+from pathlib import Path
+from typing import Iterable
 
 import koinapy
+import numpy.typing as npt
+import pandas as pd
+import tqdm
+
+from cachemir.main import MemoizedOutput
+from cachemir.main import get_index_and_stats
+
+from memoized_koinapy_wrapper.checks import (
+    numbers_are_consecutive_but_possibly_repeated,
+)
 
 
 @functools.cache
@@ -64,13 +71,62 @@ class KoinaWrapper:
         )
         return self.model.predict(inputs_df)
 
-    def __call__(self):
-        pass
-
     def iter_predict_intensities(
         self,
-        sequences: npt.NDArray,
-        charges: npt.NDArray,
-        collision_energies: npt.NDArray,
+        peptide_sequences: npt.NDArray | pd.Series,
+        precursor_charges: npt.NDArray | pd.Series,
+        collision_energies: npt.NDArray | pd.Series,
     ):
-        pass
+        predictions = self.predict(
+            peptide_sequences=peptide_sequences,
+            precursor_charges=precursor_charges,
+            collision_energies=collision_energies,
+        )
+        assert numbers_are_consecutive_but_possibly_repeated(
+            predictions.index.to_numpy()
+        )
+        encode_annotations, _ = get_annotation_encoder_and_decoder()
+        predictions["annotation_idx"] = predictions.annotation.map(encode_annotations)
+
+        for inputs, results_df in predictions.groupby(list(self.input_columns))[
+            ["intensities", "annotation_idx"]
+        ]:
+            yield MemoizedOutput(
+                input=inputs,
+                stats=(),
+                data=results_df.reset_index(drop=True),
+            )
+
+    def get_index_and_stats(
+        self,
+        inputs_df: pd.DataFrame | None = None,
+        cache_path: Path | str | None = None,
+        verbose: bool = False,
+        **kwargs,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        if cache_path is None:
+            assert self.cache_path is not None
+            cache_path = self.cache_path
+        cache_path = Path(cache_path)
+
+        inputs_df = (
+            pd.DataFrame({col: kwargs[col] for col in self.input_columns}, copy=False)
+            if inputs_df is None
+            else inputs_df[list(self.input_columns)]
+        )
+
+        index_and_stats, raw_data = get_index_and_stats(
+            path=cache_path,
+            inputs_df=inputs_df,
+            results_iter=self.iter_predict_intensities,
+            input_types=dict(
+                peptide_sequences=str,
+                precursor_charges=int,
+                collision_energies=float,
+            ),
+            stats_types={},
+            verbose=verbose,
+        )
+        return index_and_stats, raw_data
+
+    __call__ = get_index_and_stats
