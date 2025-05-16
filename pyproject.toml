@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name="memoized_koinapy_wrapper"
 version="0.0.1"
-description="A wrapper around AG Willhelm's Koina."
+description="A wrapper around AG Willhelm's Koina that memoizes memory mapped results on disk."
 readme="README.md"
 authors=[
     {name="MatteoLacki",email="matteo.lacki@gmail.com"},
