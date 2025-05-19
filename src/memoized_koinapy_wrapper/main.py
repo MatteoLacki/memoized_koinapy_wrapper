@@ -5,7 +5,7 @@ import shutil
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 import koinapy
 import numpy.typing as npt
@@ -90,7 +90,7 @@ class KoinaWrapper:
         peptide_sequences: npt.NDArray | pd.Series,
         precursor_charges: npt.NDArray | pd.Series,
         collision_energies: npt.NDArray | pd.Series,
-    ):
+    ) -> Iterator[MemoizedOutput]:
         predictions = self.predict(
             peptide_sequences=peptide_sequences,
             precursor_charges=precursor_charges,
