@@ -68,7 +68,7 @@ class KoinaWrapper:
 
     @functools.cached_property  # not calling server when all cached
     def model(self):
-        self.model = koinapy.Koina(
+        return koinapy.Koina(
             self.model_name,
             server_url=self.server_url,
             ssl=self.ssl,
