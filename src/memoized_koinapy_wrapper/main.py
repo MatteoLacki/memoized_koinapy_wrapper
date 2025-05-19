@@ -88,9 +88,10 @@ class KoinaWrapper:
         encode_annotations, _ = get_annotation_encoder_and_decoder()
         predictions["annotation_idx"] = predictions.annotation.map(encode_annotations)
 
-        for inputs, results_df in predictions.groupby(list(self.input_columns))[
-            ["intensities", "annotation_idx"]
-        ]:
+        for inputs, results_df in predictions.groupby(
+            list(self.input_columns),
+            sort=False,  # CRUCIAL!!! DO NOT DARE TO CHANGE!!!
+        )[["intensities", "annotation_idx"]]:
             yield MemoizedOutput(
                 input=inputs,
                 stats=(),

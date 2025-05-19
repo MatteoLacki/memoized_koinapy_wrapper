@@ -24,19 +24,20 @@ real_inputs["peptide_sequences"] = preprocess_sequences_for_prosit_timstof_2023(
     real_inputs.peptide_sequences
 )
 
-koina = KoinaWrapper(cache_path="/home/matteo/tmp/test18")
+koina = KoinaWrapper(cache_path="/home/matteo/tmp/test21")
 index_and_stats, raw_data = koina(inputs_df=real_inputs, verbose=True)
-index_and_stats, raw_data = koina(inputs_df=real_inputs, verbose=True)
-# only after second pass is the result correct... wtf???
 
 # Direct call also works.
 predictions = koina.predict(inputs_df=real_inputs)
+
+
+assert np.all(
+    predictions.intensities.to_numpy() == raw_data.intensities.to_numpy()
+), "Saved and retrieved intensities do not match."
 
 for K in tqdm(range(predictions.index[-1] + 1)):
     idx, cnt = index_and_stats.iloc[K]
     assert np.all(
         predictions.loc[K].intensities.to_numpy()
         == raw_data.intensities.iloc[idx : idx + cnt].to_numpy()
-    )
-
-# need to solve the last stupid thing.
+    ), "Saved and retrieved spectrum did not match."
