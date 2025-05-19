@@ -24,7 +24,14 @@ real_inputs["peptide_sequences"] = preprocess_sequences_for_prosit_timstof_2023(
     real_inputs.peptide_sequences
 )
 
-koina = KoinaWrapper(cache_path="/home/matteo/tmp/test21")
+real_inputs.iloc[:1000].to_csv("/tmp/test_call_data.csv")
+
+
+koina = KoinaWrapper(
+    cache_path="/home/matteo/tmp/test21",
+    server_url="192.168.1.73:8500",
+    ssl=False,
+)
 index_and_stats, raw_data = koina(inputs_df=real_inputs, verbose=True)
 
 # Direct call also works.

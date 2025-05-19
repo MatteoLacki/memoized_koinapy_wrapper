@@ -1,4 +1,6 @@
 import functools
+import tempfile
+import shutil
 
 from dataclasses import dataclass
 from importlib.resources import files
@@ -7,6 +9,7 @@ from typing import Iterable
 
 import koinapy
 import numpy.typing as npt
+import numpy as np
 import pandas as pd
 import tqdm
 
@@ -22,6 +25,13 @@ from memoized_koinapy_wrapper.checks import (
 def get_annotations() -> pd.DataFrame:
     return pd.read_csv(
         files("memoized_koinapy_wrapper.data").joinpath("annotations.csv")
+    )
+
+
+@functools.cache
+def get_test_call_data() -> pd.DataFrame:
+    return pd.read_csv(
+        files("memoized_koinapy_wrapper.data").joinpath("test_call_data.csv")
     )
 
 
@@ -131,3 +141,34 @@ class KoinaWrapper:
         return index_and_stats, raw_data
 
     __call__ = get_index_and_stats
+
+
+def test_koinapy_wrapper():
+    temp_dir = Path(tempfile.mkdtemp(prefix="koina_wrapper_test_", dir="/tmp"))
+
+    try:
+        test_call_data = get_test_call_data()
+        koina = KoinaWrapper(
+            cache_path=temp_dir,
+            server_url="192.168.1.73:8500",
+            ssl=False,
+        )
+        index_and_stats, raw_data = koina(inputs_df=test_call_data, verbose=True)
+
+        # Direct call also works.
+        predictions = koina.predict(inputs_df=test_call_data)
+
+        assert np.all(
+            predictions.intensities.to_numpy() == raw_data.intensities.to_numpy()
+        ), "Saved and retrieved intensities do not match."
+
+        for K in tqdm.tqdm(range(predictions.index[-1] + 1)):
+            idx, cnt = index_and_stats.iloc[K]
+            assert np.all(
+                predictions.loc[K].intensities.to_numpy()
+                == raw_data.intensities.iloc[idx : idx + cnt].to_numpy()
+            ), "Saved and retrieved spectrum did not match."
+
+    finally:
+        # Clean up the temporary cache directory
+        shutil.rmtree(temp_dir, ignore_errors=True)
