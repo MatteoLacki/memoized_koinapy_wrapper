@@ -64,6 +64,9 @@ class KoinaWrapper:
 
     def __post_init__(self):
         self.cache_path = Path(self.cache_path)
+
+    @functools.cached_property  # not calling server when all cached
+    def model(self):
         self.model = koinapy.Koina(
             self.model_name,
             server_url=self.server_url,
