@@ -50,6 +50,9 @@ def get_annotation_encoder_and_decoder() -> tuple[dict, pd.DataFrame]:
     #         decode_annotations.itertuples(name=None, index=False),
     #     )
     # )
+    decode_annotations = {
+        col: decode_annotations[col].to_numpy() for col in ["type", "ordinal", "charge"]
+    }
     return encode_annotations, decode_annotations
 
 
@@ -82,7 +85,7 @@ class SimpleKoinapyWrapper:
             ssl=False,
         ),
         annotations_encoder: dict = default_annotations_encoder,
-        annotations_decoder: pd.DataFrame = default_annotations_decoder,
+        annotations_decoder: dict = default_annotations_decoder,
         input_types: dict[str, type] = dict(
             peptide_sequences=str,
             precursor_charges=int,
@@ -131,11 +134,11 @@ class SimpleKoinapyWrapper:
     ) -> list[pd.DataFrame]:
         results = []
         for _, outputs in self.iter(inputs_df):
+            annotations = outputs.pop("annotation")
             if return_dfs:
                 outputs = pd.DataFrame(outputs, copy=False)
-            annotations = self.annotations_decoder.loc[to_numpy(outputs["annotation"])]
-            for c in annotations:
-                outputs[c] = annotations[c].to_numpy()
+            for col, decoding in self.annotations_decoder.items():
+                outputs[col] = decoding[annotations]
             results.append(outputs)
         return results
 
