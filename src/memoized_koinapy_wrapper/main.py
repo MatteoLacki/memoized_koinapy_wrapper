@@ -35,6 +35,7 @@ def get_test_call_data() -> pd.DataFrame:
     )
 
 
+@functools.cache
 def get_annotation_encoder_and_decoder() -> tuple[dict, pd.DataFrame]:
     X = get_annotations()
     decode_annotations = X.drop(columns="index")
