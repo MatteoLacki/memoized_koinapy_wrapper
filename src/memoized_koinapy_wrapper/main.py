@@ -68,7 +68,6 @@ def to_numpy(xx):
     return xx
 
 
-@dataclass
 class SimpleKoinapyWrapper:
     """Simple wrapper around koinapy.
 
