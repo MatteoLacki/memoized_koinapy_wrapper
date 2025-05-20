@@ -15,6 +15,8 @@ import tqdm
 
 from cachemir.main import MemoizedOutput
 from cachemir.main import get_index_and_stats
+from cachemir.main import SimpleLMDB
+
 
 from memoized_koinapy_wrapper.checks import (
     numbers_are_consecutive_but_possibly_repeated,
@@ -42,7 +44,100 @@ def get_annotation_encoder_and_decoder() -> tuple[dict, pd.DataFrame]:
     encode_annotations = dict(
         zip(map(lambda a: a.encode(), X["annotation"]), X["index"])
     )
+    # decode_annotations = dict(
+    #     zip(
+    #         decode_annotations.index,
+    #         decode_annotations.itertuples(name=None, index=False),
+    #     )
+    # )
     return encode_annotations, decode_annotations
+
+
+(
+    default_annotations_encoder,
+    default_annotations_decoder,
+) = get_annotation_encoder_and_decoder()
+
+
+def to_numpy(xx):
+    if isinstance(xx, pd.Series):
+        return xx.to_numpy()
+    return xx
+
+
+@dataclass
+class SimpleKoinapyWrapper:
+    """Simple wrapper around koinapy.
+
+    This model was downloaded from ZENODO: https://zenodo.org/records/8211811
+    PAPER : https://doi.org/10.1101/2023.07.17.549401
+    """
+
+    def __init__(
+        self,
+        db: SimpleLMDB,
+        koinapy_kwargs: dict = dict(
+            model_name="Prosit_2023_intensity_timsTOF",
+            server_url="192.168.1.73:8500",
+            ssl=False,
+        ),
+        annotations_encoder: dict = default_annotations_encoder,
+        annotations_decoder: pd.DataFrame = default_annotations_decoder,
+        input_types: dict[str, type] = dict(
+            peptide_sequences=str,
+            precursor_charges=int,
+            collision_energies=float,
+        ),
+        columns_to_save: list[str] | None = ["intensities", "annotation"],
+        meta: dict[str, str | float | int] = dict(
+            sofware="koinapy", model="Prosit_2023_intensity_timsTOF"
+        ),
+    ):
+        self.db = db
+        self.koinapy_kwargs = koinapy_kwargs
+        self.annotations_encoder = annotations_encoder
+        self.annotations_decoder = annotations_decoder
+        self.input_types = input_types
+        self.columns_to_save = columns_to_save
+        self.meta = meta
+
+    @functools.cached_property  # be lazy
+    def model(self):
+        return koinapy.Koina(**self.koinapy_kwargs)
+
+    def predict(self, inputs_df):
+        return self.model.predict(inputs_df)
+
+    def iter_eval(self, inputs_df: pd.DataFrame):
+        columns_to_save = (
+            inputs_df.columns if self.columns_to_save is None else self.columns_to_save
+        )
+        inputs_df = inputs_df[list(self.input_types)]
+        predictions = self.predict(inputs_df)
+        predictions.annotation = predictions.annotation.map(self.annotations_encoder)
+        yield from predictions.groupby(list(self.input_types), sort=False)[
+            columns_to_save
+        ]
+
+    def iter(self, inputs_df: pd.DataFrame):
+        yield from self.db.iter_IO(
+            iter_eval=self.iter_eval, inputs_df=inputs_df, meta=self.meta
+        )
+
+    def predict_compact(
+        self,
+        inputs_df: pd.DataFrame,
+        return_dfs: bool = False,
+    ) -> list[pd.DataFrame]:
+        results = []
+        for _, outputs in self.iter(inputs_df):
+            if return_dfs:
+                outputs = pd.DataFrame(outputs, copy=False)
+            annotations = self.annotations_decoder.loc[to_numpy(outputs["annotation"])]
+            for c in annotations:
+                outputs[c] = annotations[c].to_numpy()
+            results.append(outputs)
+        return results
 
 
 @dataclass

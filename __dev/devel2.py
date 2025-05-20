@@ -17,7 +17,7 @@ from tqdm import tqdm
 from pathlib import Path
 
 from memoized_koinapy_wrapper.main import (
-    KoinaWrapper,
+    SimpleKoinapyWrapper,
     get_annotation_encoder_and_decoder,
 )
 from cachemir.main import SimpleLMDB
@@ -38,15 +38,26 @@ real_inputs["peptide_sequences"] = preprocess_sequences_for_prosit_timstof_2023(
 # Direct call also works.
 inputs_df = real_inputs.iloc[:1000]
 
-koina = KoinaWrapper(
-    cache_path="/home/matteo/tmp/test22",
-    server_url="192.168.1.73:8500",
-    ssl=False,
-)
+db = SimpleLMDB(path="/home/matteo/tmp/test25.lmbd")
+# with db.open("r") as txn:
+#     print(txn.get("__meta__", None))
+#     print(len(txn))
+prosit_2023_timsTOF = SimpleKoinapyWrapper(db)
 
-predictions = koina.predict(inputs_df=inputs_df)
+# predictions = prosit_2023_timsTOF.predict(inputs_df=inputs_df)
+# list(tqdm(prosit_2023_timsTOF.iter(inputs_df=inputs_df), total=len(inputs_df)))
+# it = prosit_2023_timsTOF.iter(inputs_df=inputs_df)
+# _, outputs = next(it)
 
 
+results = prosit_2023_timsTOF.predict_compact(inputs_df)
+results = prosit_2023_timsTOF.predict_compact(real_inputs)
+
+%%time
+xx = list(tqdm(prosit_2023_timsTOF.iter(real_inputs), total=len(real_inputs)))
+
+
+pd.DataFrame(inputs, columns=list(prosit_2023_timsTOF.input_types))
 # rm -rf /home/matteo/tmp/test25.lmbd
 cache_path = "/home/matteo/tmp/test25.lmbd"
 
@@ -63,9 +74,6 @@ def iter_evaluate_koina(
 
 # need to update the pytest in koinapy_wrapper.
 
-db = SimpleLMDB(cache_path)
-with db.open("r") as txn:
-    print(txn["__meta__"])
 
 it = db.iter_IO(
     iter_eval=iter_evaluate_koina,
