@@ -127,16 +127,10 @@ class SimpleKoinapyWrapper:
             iter_eval=self.iter_eval, inputs_df=inputs_df, meta=self.meta
         )
 
-    def predict_compact(
-        self,
-        inputs_df: pd.DataFrame,
-        return_dfs: bool = False,
-    ) -> list[pd.DataFrame]:
+    def predict_compact(self, inputs_df: pd.DataFrame) -> list[dict[str, npt.NDArray]]:
         results = []
         for _, outputs in self.iter(inputs_df):
             annotations = outputs.pop("annotation")
-            if return_dfs:
-                outputs = pd.DataFrame(outputs, copy=False)
             for col, decoding in self.annotations_decoder.items():
                 outputs[col] = decoding[annotations]
             results.append(outputs)
