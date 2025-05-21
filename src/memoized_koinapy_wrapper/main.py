@@ -110,7 +110,10 @@ class SimpleKoinapyWrapper:
     def predict(self, inputs_df):
         return self.model.predict(inputs_df)
 
-    def iter_eval(self, inputs_df: pd.DataFrame):
+    def iter_eval(
+        self,
+        inputs_df: pd.DataFrame,
+    ) -> Iterator[tuple[tuple, pd.DataFrame]]:
         columns_to_save = (
             inputs_df.columns if self.columns_to_save is None else self.columns_to_save
         )
